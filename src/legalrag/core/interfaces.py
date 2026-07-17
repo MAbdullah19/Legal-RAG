@@ -43,6 +43,7 @@ class Stage:
     QUERY_TRANSFORMER = "query_transformer"
     FUSION = "fusion"
     RERANKER = "reranker"
+    GRAPH_EXPANDER = "graph_expander"
     RETRIEVER = "retriever"
     # generation + trust
     ASSEMBLER = "assembler"
@@ -132,6 +133,15 @@ class Fusion(Protocol):
 @runtime_checkable
 class Reranker(Protocol):
     def rerank(self, query: str, chunks: Sequence[ScoredChunk], top_k: int) -> list[ScoredChunk]: ...
+
+
+@runtime_checkable
+class GraphExpander(Protocol):
+    """Blends citation-graph signals (authority, precedent neighbours) into a
+    reranked result set (master plan §5.5, E7). Distinct from LLM-built GraphRAG:
+    this graph is native to the domain (real citations)."""
+
+    def expand(self, query: str, scored: Sequence[ScoredChunk]) -> list[ScoredChunk]: ...
 
 
 @runtime_checkable

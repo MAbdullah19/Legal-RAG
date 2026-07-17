@@ -1,0 +1,38 @@
+# E7 — citation-graph expansion + authority reranking (master plan §7).
+# Builds on hybrid retrieval (E1) by blending citation-graph signals: authority
+# scoring floats leading/binding precedent up, and neighbour injection reaches
+# precedent-chain cases that text similarity misses (e.g. the case that overruled
+# a retrieved one). Hypothesis: gains concentrate on multi-hop / precedent queries.
+name: e7_graph
+corpus: fixture
+seed: 0
+
+index:
+  chunker: {name: fixed, max_tokens: 220}
+  embedder: {name: hashing, dim: 2048}
+  vector_index: {name: memory}
+  lexical_index: {name: bm25, k1: 1.5, b: 0.75}
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 20
+  sparse_k: 20
+  fusion: {name: rrf, k: 60}
+  reranker: {name: none}
+  rerank_top_k: 8                 # keep 8 text hits; graph fills the rest of final_k
+  graph_expander:                 # <-- the E7 ablation
+    name: citation_neighbors
+    authority_boost: 0.0          # authority rerank off by default (relevance != authority)
+    expand_top_n: 3
+    neighbours_per_hit: 2
+  final_k: 10                     # same total budget as E1 -> fair @10 comparison
+
+generation:
+  assembler: {name: concat, budget_tokens: 4000}
+  generator: {name: extractive, max_sources: 3}
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000
