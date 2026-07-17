@@ -1,0 +1,35 @@
+name: ci
+
+on:
+  push:
+    branches: ["main", "jurisdiction/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (core + dev only — smoke path needs no extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Type check
+        run: mypy
+
+      - name: Unit tests
+        run: pytest --cov=legalrag --cov-report=term-missing
+
+      - name: Eval smoke (E0 end-to-end on fixture corpus)
+        run: legalrag eval --experiment e0_naive_baseline --smoke

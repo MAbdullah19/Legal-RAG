@@ -1,0 +1,85 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "legalrag"
+version = "0.1.0"
+description = "Research platform for advanced RAG over judicial corpora"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Muhammad Abdullah" }]
+keywords = ["rag", "legal", "retrieval", "nlp", "information-retrieval"]
+
+# Core runtime deps are deliberately light so the E0 smoke pipeline runs
+# with no external services and no API keys. Heavy/optional integrations
+# (vector DBs, cloud LLMs, ML rerankers, trackers) live in extras below and
+# are wired in behind the component registry as they are adopted.
+dependencies = [
+    "pydantic>=2.7",
+    "pydantic-settings>=2.2",
+    "pyyaml>=6.0",
+    "numpy>=1.26",
+    "typer>=0.12",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-cov>=5.0",
+    "ruff>=0.5",
+    "mypy>=1.10",
+    "types-PyYAML>=6.0",
+]
+# --- swappable component implementations (installed as adopted) ---
+embeddings = ["sentence-transformers>=3.0", "voyageai>=0.2", "anthropic>=0.34"]
+stores = ["qdrant-client>=1.10", "psycopg[binary]>=3.2"]
+lexical = ["bm25s>=0.2"]
+parsing = ["pymupdf>=1.24", "docling>=2.0"]
+citations = ["eyecite>=2.6", "reporters-db>=3.2", "courts-db>=0.10"]
+graph = ["networkx>=3.3"]
+tracking = ["mlflow>=2.14", "dvc[s3]>=3.0"]
+verify = ["rapidfuzz>=3.9"]
+all = [
+    "legalrag[embeddings,stores,lexical,parsing,citations,graph,tracking,verify]",
+]
+
+[project.scripts]
+legalrag = "legalrag.cli:app"
+
+[project.urls]
+Repository = "https://github.com/MAbdullah19/Legal-RAG"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/legalrag"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.ruff.lint.isort]
+known-first-party = ["legalrag"]
+
+[tool.mypy]
+# Analyze at 3.12 (numpy's shipped stubs use 3.12 `type` syntax). Our own code
+# stays 3.11-compatible per requires-python; ruff target-version guards that.
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+strict = true
+# core/ carries the strict contract; experiments and glue can be looser.
+files = ["src/legalrag"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["legalrag"]
