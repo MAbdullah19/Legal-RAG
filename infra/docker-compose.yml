@@ -1,0 +1,75 @@
+# Development stack for adopted integrations (master plan §8).
+#
+# NONE of this is required for the E0 smoke pipeline or CI — those run on
+# deterministic in-process components (ADR 0003). Bring these up when wiring the
+# Qdrant vector index, Postgres metadata/citation-graph store, MinIO object
+# store + DVC remote, MLflow tracking, and Phoenix tracing on the US track.
+#
+#   docker compose -f infra/docker-compose.yml up -d
+#
+# Credentials come from the repo-root .env (copy from .env.example).
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.12.1
+    ports:
+      - "6333:6333"   # REST/gRPC
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: legalrag
+      POSTGRES_PASSWORD: legalrag
+      POSTGRES_DB: legalrag
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legalrag"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: legalrag
+      MINIO_ROOT_PASSWORD: legalrag123
+    ports:
+      - "9000:9000"   # S3 API (DVC remote)
+      - "9001:9001"   # console
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.16.2
+    command: >
+      mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --artifacts-destination /mlflow/artifacts
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
+    restart: unless-stopped
+
+  phoenix:
+    image: arizephoenix/phoenix:latest
+    ports:
+      - "6006:6006"   # UI + OTLP collector
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
+  pg_data:
+  minio_data:
+  mlflow_data:

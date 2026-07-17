@@ -1,0 +1,32 @@
+# E1 — hybrid retrieval (master plan §7).
+# Only diff from E0: turn on BM25 (sparse_k) and fuse with RRF. Hypothesis:
+# lexical rescues citation / term-of-art queries that dense similarity misses.
+name: e1_hybrid
+corpus: fixture
+seed: 0
+
+index:
+  chunker: {name: fixed, max_tokens: 220}
+  contextualizer: {name: none}
+  embedder: {name: hashing, dim: 2048}
+  vector_index: {name: memory}
+  lexical_index: {name: bm25, k1: 1.5, b: 0.75}
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 20
+  sparse_k: 20                     # <-- the ablation
+  fusion: {name: rrf, k: 60}
+  reranker: {name: none}
+  rerank_top_k: 10
+  final_k: 10
+
+generation:
+  assembler: {name: concat, budget_tokens: 4000}
+  generator: {name: extractive, max_sources: 3}
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000
