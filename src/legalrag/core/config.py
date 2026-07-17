@@ -39,6 +39,7 @@ class RetrievalConfig(_Model):
     fusion: Spec = Field(default_factory=lambda: ComponentSpec(name="rrf"))
     reranker: Spec = Field(default_factory=lambda: ComponentSpec(name="none"))
     rerank_top_k: int = 10
+    graph_expander: Spec = Field(default_factory=lambda: ComponentSpec(name="none"))
     final_k: int = 10
 
 

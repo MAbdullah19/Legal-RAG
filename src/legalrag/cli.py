@@ -124,6 +124,30 @@ def eval_cmd(
 
 
 @app.command()
+def graph(
+    doc_id: str,
+    experiment: str = typer.Option("e7_graph", "--experiment", "-e"),
+) -> None:
+    """Show a document's citation-graph position: authority, treatment, neighbours."""
+    cfg = load_experiment(experiment)
+    corpus = load_corpus(cfg.corpus)
+    from legalrag.core.graph.citation_graph import CitationGraph
+
+    g = CitationGraph.from_corpus(corpus)
+    if doc_id not in corpus:
+        console.print(f"[red]{doc_id!r} not in corpus[/]")
+        raise typer.Exit(code=1)
+    auth = g.authority_scores().get(doc_id, 0.0)
+    console.print(f"[cyan]{doc_id}[/]  authority={auth:.3f}")
+    status = "OVERRULED" if g.is_overruled(doc_id) else ("questioned" if g.is_questioned(doc_id) else "good law")
+    colour = "red" if g.is_questioned(doc_id) else "green"
+    console.print(f"status: [{colour}]{status}[/]  incoming treatments: "
+                  f"{', '.join(t.value for t in g.incoming_treatments(doc_id)) or '—'}")
+    console.print(f"cites ({len(g.cites(doc_id))}): {', '.join(g.cites(doc_id)) or '—'}")
+    console.print(f"cited_by ({len(g.cited_by(doc_id))}): {', '.join(g.cited_by(doc_id)) or '—'}")
+
+
+@app.command()
 def ingest(source: str) -> None:
     """Placeholder — jurisdiction packs implement connectors (US/PK tracks)."""
     console.print(f"[yellow]ingest[/] for {source!r} is implemented in jurisdiction packs.")
