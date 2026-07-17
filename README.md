@@ -20,8 +20,35 @@ Core rule: core code lands on `main`; jurisdiction branches hold only jurisdicti
 - **[Master Implementation Plan](docs/IMPLEMENTATION_PLAN.md)** — architecture, research questions, experiment ladder (E0–E10), phased roadmap (P0–P5), risks
 - [US annex](docs/jurisdictions/us.md) · [Pakistan annex](docs/jurisdictions/pakistan.md) · [Multi-jurisdiction annex](docs/jurisdictions/multi.md)
 
-## Status
+## Quickstart
 
-Planning phase (P0 pending): repo scaffolding, docker dev stack (Qdrant · Postgres · MinIO · MLflow · Phoenix), canonical model + component registry, fixture corpus, E0 baseline. See [Immediate next actions](docs/IMPLEMENTATION_PLAN.md#13-immediate-next-actions-p0-kickoff).
+```bash
+python -m venv .venv && . .venv/Scripts/activate   # or bin/activate on *nix
+pip install -e ".[dev]"
+
+python evalsets/fixture/build_fixture.py           # (re)generate the fixture corpus
+legalrag components                                # list every registered component
+legalrag eval --experiment e0_naive_baseline       # tracked E0 run on the fixture
+legalrag eval --experiment e1_hybrid               # same, hybrid retrieval (a config diff)
+legalrag query "damages for remoteness" -e e0_naive_baseline
+```
+
+No API keys or services are needed to run the above — the baseline uses
+deterministic in-process components ([ADR 0003](docs/adr/0003-deterministic-smoke-path.md)).
+Real embedders/LLMs/stores register the same way and are selected in config.
+
+## Status — P0 (Foundations) complete
+
+Done: package scaffold + CI, canonical document model, component registry +
+stage interfaces, config-driven experiment runner, evaluation harness (retrieval
++ generation metrics, per-query-type breakdown, run tracking), deterministic
+verification stack, 14-doc fixture corpus (incl. adversarial cases), and **E0
+running end-to-end** (recall@10 ≈ 0.96, **hallucinated-citation rate 0**). Infra
+dev stack (Qdrant · Postgres · MinIO · MLflow · Phoenix) authored in
+[`infra/`](infra/). 35 tests, ruff + mypy(strict) green.
+
+Next: P1 on `jurisdiction/us` — CAP/CourtListener connectors, CLERC-dev slice,
+eyecite adapter, then the E1–E10 ablation ladder. See the
+[master plan roadmap](docs/IMPLEMENTATION_PLAN.md#10-phased-roadmap).
 
 > ⚖️ Research software. Outputs are legal *information* with verified sources, never legal advice.
