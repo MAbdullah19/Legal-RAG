@@ -16,12 +16,14 @@ from dataclasses import dataclass
 from legalrag.core import builtins as _builtins  # noqa: F401  (registers components)
 from legalrag.core.config import ExperimentConfig
 from legalrag.core.corpus import Corpus, as_json
+from legalrag.core.graph.citation_graph import CitationGraph
 from legalrag.core.interfaces import (
     AssembledContext,
     ContextAssembler,
     Embedder,
     Fusion,
     Generator,
+    GraphExpander,
     LexicalIndex,
     QueryTransformer,
     Reranker,
@@ -44,6 +46,7 @@ class Pipeline:
     def __init__(self, config: ExperimentConfig, corpus: Corpus) -> None:
         self.config = config
         self.corpus = corpus
+        self.graph = CitationGraph.from_corpus(corpus)
 
         ix, rt, gen = config.index, config.retrieval, config.generation
         self.chunker = build(Stage.CHUNKER, ix.chunker)
@@ -61,6 +64,9 @@ class Pipeline:
         )
         self.fusion: Fusion = build(Stage.FUSION, rt.fusion)
         self.reranker: Reranker = build(Stage.RERANKER, rt.reranker)
+        self.graph_expander: GraphExpander = build(
+            Stage.GRAPH_EXPANDER, rt.graph_expander, corpus=corpus, graph=self.graph
+        )
 
         self.assembler: ContextAssembler = build(Stage.ASSEMBLER, gen.assembler)
         self.generator: Generator = build(Stage.GENERATOR, gen.generator)
@@ -108,7 +114,8 @@ class Pipeline:
                 )
         fused = self.fusion.fuse(ranked_lists) if ranked_lists else []
         reranked = self.reranker.rerank(query, fused, rt.rerank_top_k)
-        return RetrievalResult(qid=qid, scored=reranked[: rt.final_k])
+        expanded = self.graph_expander.expand(query, reranked)
+        return RetrievalResult(qid=qid, scored=expanded[: rt.final_k])
 
     # --- full answer ----------------------------------------------------
 
