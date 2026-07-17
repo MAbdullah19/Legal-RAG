@@ -71,10 +71,13 @@ class Registry:
                 f"unknown {stage} component {name!r}; available: {avail}"
             ) from None
 
-    def build(self, stage: str, spec: Any) -> Any:
+    def build(self, stage: str, spec: Any, **extra: Any) -> Any:
+        """Instantiate a component. ``extra`` kwargs (e.g. a live ``corpus=``)
+        are merged over the config params so the runner can inject objects that
+        cannot be expressed in YAML."""
         spec = ComponentSpec.from_obj(spec)
         factory = self.get(stage, spec.name)
-        return factory(**spec.params)
+        return factory(**{**spec.params, **extra})
 
     def available(self, stage: str) -> list[str]:
         return sorted(self._by_stage.get(stage, {}))
@@ -91,5 +94,5 @@ def register(stage: str, name: str) -> Callable[[type[T]], type[T]]:
     return REGISTRY.register(stage, name)
 
 
-def build(stage: str, spec: Any) -> Any:
-    return REGISTRY.build(stage, spec)
+def build(stage: str, spec: Any, **extra: Any) -> Any:
+    return REGISTRY.build(stage, spec, **extra)

@@ -1,0 +1,32 @@
+# E0 — naive baseline (master plan §7).
+# Fixed-size chunks, single dense embedder, top-k -> extractive grounded answer.
+# Establishes the floor; its error taxonomy seeds every later rung.
+name: e0_naive_baseline
+corpus: fixture
+seed: 0
+
+index:
+  chunker: {name: fixed, max_tokens: 220}
+  contextualizer: {name: none}
+  embedder: {name: hashing, dim: 2048}
+  vector_index: {name: memory}
+  lexical_index: {name: bm25}      # built but unused at E0 (sparse_k: 0)
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 20
+  sparse_k: 0                      # dense-only — hybrid is E1
+  fusion: {name: rrf, k: 60}
+  reranker: {name: none}
+  rerank_top_k: 10
+  final_k: 10
+
+generation:
+  assembler: {name: concat, budget_tokens: 4000}
+  generator: {name: extractive, max_sources: 3}
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000

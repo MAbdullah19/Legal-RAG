@@ -68,7 +68,9 @@ ignore = ["E501"]  # line length handled by formatter
 known-first-party = ["legalrag"]
 
 [tool.mypy]
-python_version = "3.11"
+# Analyze at 3.12 (numpy's shipped stubs use 3.12 `type` syntax). Our own code
+# stays 3.11-compatible per requires-python; ruff target-version guards that.
+python_version = "3.12"
 plugins = ["pydantic.mypy"]
 strict = true
 # core/ carries the strict contract; experiments and glue can be looser.
