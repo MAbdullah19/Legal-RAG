@@ -10,13 +10,26 @@
 - **Out (lives on `main`):** canonical model, component interfaces/registry, eval harness, retrieval/generation/verify components — develop here if convenient, but **commit to `main` and merge back in**
 - **Out (other branches):** anything PK- or multi-specific
 
-## Immediate next steps
+## Progress
 
-1. Wait for P0 scaffold on `main` (repo skeleton, docker stack, fixture corpus, E0 on fixtures) — or do P0 on `main` now
-2. CAP bulk connector (`static.case.law`) + snapshot `us/clerc-dev-10k`
-3. eyecite adapter → `citation_edges`; ingestion quality dashboard
-4. E0 baseline on CLERC-dev → MLflow; write the error taxonomy
-5. Climb the ladder: E1 (hybrid) → E2 (rerank) → …
+- [x] P0 engine merged from `main` (canonical model, registry, config runner, eval harness, verifier, E0/E1/E7)
+- [x] **US pack citation extraction (hermetic):** `jurisdictions/us/` — `us_regex`
+      reporter + case-name extractor with rule-based treatment heuristic;
+      `eyecite` opt-in adapter (lazy); reporter→court registry; hand-crafted
+      US sample corpus (`evalsets/us/mini/`, real SCOTUS/circuit cites).
+      Extract → resolve (core `CitationResolver`) → citation graph verified
+      end-to-end: Dobbs→Roe/Casey OVERRULED edges, authority ordering, 8 tests.
+
+## Next steps
+
+1. CAP bulk connector (`static.case.law`) + snapshot `us/clerc-dev-10k` — the deferred network step
+2. Point `us_regex` (and eyecite once `pip install .[citations]`) at real opinions; measure resolution rate
+3. E0 baseline on CLERC-dev → MLflow; write the error taxonomy
+4. Climb the ladder: E1 (hybrid) → E2 (rerank) → …
+5. Treatment classifier component (replace the keyword heuristic; few-shot → fine-tuned per plan §5.5)
+
+Note (for authority tuning later): recency decay (τ=15y in `core`) crushes very old
+landmark cases; revisit τ / add a citation-count floor when tuning on real CAP data.
 
 ## Merge policy
 
