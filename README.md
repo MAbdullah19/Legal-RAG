@@ -30,25 +30,34 @@ python evalsets/fixture/build_fixture.py           # (re)generate the fixture co
 legalrag components                                # list every registered component
 legalrag eval --experiment e0_naive_baseline       # tracked E0 run on the fixture
 legalrag eval --experiment e1_hybrid               # same, hybrid retrieval (a config diff)
+legalrag eval --experiment e7_graph                # + citation-graph expansion (E7)
 legalrag query "damages for remoteness" -e e0_naive_baseline
+legalrag graph "xx/high/2015-201/v1"               # authority + treatment of a case
 ```
 
 No API keys or services are needed to run the above — the baseline uses
 deterministic in-process components ([ADR 0003](docs/adr/0003-deterministic-smoke-path.md)).
 Real embedders/LLMs/stores register the same way and are selected in config.
 
-## Status — P0 (Foundations) complete
+## Status — P0 complete; citation-graph rung (E7) landed
 
-Done: package scaffold + CI, canonical document model, component registry +
-stage interfaces, config-driven experiment runner, evaluation harness (retrieval
-+ generation metrics, per-query-type breakdown, run tracking), deterministic
-verification stack, 14-doc fixture corpus (incl. adversarial cases), and **E0
-running end-to-end** (recall@10 ≈ 0.96, **hallucinated-citation rate 0**). Infra
-dev stack (Qdrant · Postgres · MinIO · MLflow · Phoenix) authored in
-[`infra/`](infra/). 35 tests, ruff + mypy(strict) green.
+**P0 (Foundations):** package scaffold + CI, canonical document model, component
+registry + stage interfaces, config-driven experiment runner, evaluation harness
+(retrieval + generation metrics, per-query-type breakdown, run tracking),
+deterministic verification stack, 14-doc fixture corpus (incl. adversarial
+cases), and **E0 end-to-end** (recall@10 ≈ 0.96, **hallucinated-citation rate 0**).
+Infra dev stack (Qdrant · Postgres · MinIO · MLflow · Phoenix) in [`infra/`](infra/).
+
+**Citation graph + graph-expanded retrieval (E7):** domain-native citation graph
+(PageRank + court-level + recency + negative-treatment authority scoring,
+overruled/"still good law?" detection), and additive graph-neighbour injection
+that lifts multi-hop recall@10 from **0.67 → 1.0** with no aggregate regression
+and zero fabricated citations ([ADR 0004](docs/adr/0004-citation-graph-native-not-synthesized.md)).
+Real embedder adapters (Voyage · sentence-transformers/BGE-M3) registered as
+opt-in components. **48 tests, ruff + mypy(strict) green.**
 
 Next: P1 on `jurisdiction/us` — CAP/CourtListener connectors, CLERC-dev slice,
-eyecite adapter, then the E1–E10 ablation ladder. See the
-[master plan roadmap](docs/IMPLEMENTATION_PLAN.md#10-phased-roadmap).
+eyecite adapter (feeding this graph with real citations), then the rest of the
+E1–E10 ladder. See the [roadmap](docs/IMPLEMENTATION_PLAN.md#10-phased-roadmap).
 
 > ⚖️ Research software. Outputs are legal *information* with verified sources, never legal advice.
