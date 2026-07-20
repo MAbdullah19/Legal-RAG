@@ -1,0 +1,50 @@
+# E9 — grounded generation + verification, fully local (master plan §7, §5.6-5.7).
+# The complete data-sovereignty stack (ADR 0005): local BGE-M3 embeddings, local
+# BGE cross-encoder rerank, and a local LLM (via an OpenAI-compatible endpoint)
+# composing the answer. The deterministic verifier still runs outside the model and
+# drops any citation/quote it cannot confirm against the corpus — so the target is
+# hallucinated-citation rate ~= 0 even with a small local model.
+#
+# Needs: `pip install -e ".[embeddings,llm,verify]"` and a local LLM server, e.g.
+#   ollama serve && ollama pull qwen2.5:7b-instruct
+# (or point base_url/LOCAL_LLM_BASE_URL at vLLM/LM Studio). No text leaves the box.
+name: e9_local_grounded
+corpus: fixture
+seed: 0
+
+index:
+  chunker: {name: fixed, max_tokens: 220}
+  contextualizer: {name: none}
+  embedder: {name: sentence_transformer, model: BAAI/bge-m3, normalize: true}
+  vector_index: {name: memory}
+  lexical_index: {name: bm25, k1: 1.5, b: 0.75}
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 20
+  sparse_k: 20
+  fusion: {name: rrf, k: 60}
+  reranker: {name: bge_reranker, model: BAAI/bge-reranker-v2-m3}
+  rerank_top_k: 8
+  graph_expander:
+    name: citation_neighbors
+    authority_boost: 0.0
+    expand_top_n: 3
+    neighbours_per_hit: 2
+  final_k: 10
+
+generation:
+  assembler: {name: concat, budget_tokens: 8000}
+  generator:                        # <-- the E9 ablation: local grounded LLM
+    name: grounded
+    backend: local
+    model: qwen2.5:7b-instruct
+    prompt: grounded_v1
+    temperature: 0.0
+    max_sources: 8
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000
