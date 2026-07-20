@@ -8,6 +8,8 @@ the authority scorer (apex ≻ appellate ≻ trial) with no external dependency.
 
 from __future__ import annotations
 
+import re
+
 from legalrag.core.models import CourtLevel, CourtRef
 
 # Canonical reporter -> court tier.
@@ -49,3 +51,30 @@ def court_level_for_reporter(reporter: str) -> CourtLevel | None:
 def court_for_reporter(reporter: str) -> CourtRef | None:
     level = REPORTER_COURT_LEVEL.get(reporter)
     return _COURT_BY_LEVEL.get(level) if level else None
+
+
+# CourtListener uses short court ids ("scotus", "ca9", "cadc", "cand", ...). Map
+# them to the canonical tier so ingested opinions feed the authority scorer. v0
+# covers the federal hierarchy (the CLERC/CAP dev slice); state apex courts are a
+# known simplification (default TRIAL) revisited when a state slice is ingested.
+_CIRCUIT_RE = re.compile(r"^ca(\d{1,2}|dc|fc)$")
+
+
+def court_level_for_courtlistener_id(court_id: str) -> CourtLevel:
+    if court_id == "scotus":
+        return CourtLevel.APEX
+    if _CIRCUIT_RE.match(court_id):
+        return CourtLevel.APPELLATE
+    return CourtLevel.TRIAL
+
+
+def court_ref_for_courtlistener_id(court_id: str, name: str | None = None) -> CourtRef:
+    """A CourtRef carrying the real court name from ingestion metadata, with the
+    tier inferred from the court id (apex/appellate/trial)."""
+    level = court_level_for_courtlistener_id(court_id)
+    return CourtRef(
+        court_id=f"us/{court_id}",
+        name=name or _COURT_BY_LEVEL[level].name,
+        level=level,
+        jurisdiction="us",
+    )
