@@ -38,6 +38,7 @@ class GroundedGenerator:
         temperature: float = 0.0,
         max_tokens: int = 1024,
         max_sources: int = 8,
+        timeout: float = 120.0,
         client: LLMClient | None = None,
     ) -> None:
         self.backend = backend
@@ -47,6 +48,7 @@ class GroundedGenerator:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.max_sources = max_sources
+        self.timeout = timeout
         self._client = client
         get_prompt(prompt)  # fail fast on an unknown prompt name
 
@@ -55,7 +57,9 @@ class GroundedGenerator:
             if self.backend == "local":
                 from legalrag.core.llm.local import OpenAICompatClient
 
-                self._client = OpenAICompatClient(model=self.model, base_url=self.base_url)
+                self._client = OpenAICompatClient(
+                    model=self.model, base_url=self.base_url, timeout=self.timeout
+                )
             else:
                 raise ValueError(f"unknown generator backend {self.backend!r}")
         return self._client
