@@ -24,6 +24,11 @@ mlruns/
 *.duckdb
 .dvc/cache/
 
+# Pulled corpora — regenerate via jurisdiction connectors; not committed
+# (public record, but kept out of git for size/provenance hygiene). Hand-crafted
+# fixtures (evalsets/fixture, evalsets/us/mini) ARE committed.
+evalsets/us/clerc-dev/
+
 # OS / editor
 .DS_Store
 Thumbs.db
