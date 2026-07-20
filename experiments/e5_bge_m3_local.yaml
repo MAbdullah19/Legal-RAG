@@ -1,0 +1,35 @@
+# E5 — embedding bake-off, local sovereignty entry (master plan §7, §5.3).
+# Swaps the deterministic `hashing` baseline for local BGE-M3 dense embeddings.
+# Purely a config diff — same pipeline, real semantic vectors. This is the
+# fully-local dense entry in the E5 bake-off (vs. voyage-3-large / voyage-law-2 API
+# entries); quantifies the local-vs-API gap for the data-sovereignty posture (RQ2).
+# Needs `pip install -e ".[embeddings]"`; first run downloads BAAI/bge-m3.
+name: e5_bge_m3_local
+corpus: fixture
+seed: 0
+
+index:
+  chunker: {name: fixed, max_tokens: 220}
+  contextualizer: {name: none}
+  embedder: {name: sentence_transformer, model: BAAI/bge-m3, normalize: true}  # <-- the ablation
+  vector_index: {name: memory}
+  lexical_index: {name: bm25, k1: 1.5, b: 0.75}
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 20
+  sparse_k: 20
+  fusion: {name: rrf, k: 60}
+  reranker: {name: bge_reranker, model: BAAI/bge-reranker-v2-m3}
+  rerank_top_k: 10
+  final_k: 10
+
+generation:
+  assembler: {name: concat, budget_tokens: 4000}
+  generator: {name: extractive, max_sources: 3}
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000

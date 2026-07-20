@@ -1,0 +1,34 @@
+# E2 — cross-encoder reranking (master plan §7).
+# Diff from E1: add a local BGE cross-encoder over the fused candidates. Hypothesis:
+# joint query-document scoring lifts nDCG@10 >= 5 pts at acceptable latency.
+# Local model (ADR 0005) — needs `pip install -e ".[embeddings]"`; first run
+# downloads BAAI/bge-reranker-v2-m3 to the HF cache, thereafter offline.
+name: e2_rerank
+corpus: fixture
+seed: 0
+
+index:
+  chunker: {name: fixed, max_tokens: 220}
+  contextualizer: {name: none}
+  embedder: {name: hashing, dim: 2048}
+  vector_index: {name: memory}
+  lexical_index: {name: bm25, k1: 1.5, b: 0.75}
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 20
+  sparse_k: 20
+  fusion: {name: rrf, k: 60}
+  reranker: {name: bge_reranker, model: BAAI/bge-reranker-v2-m3}   # <-- the ablation
+  rerank_top_k: 10
+  final_k: 10
+
+generation:
+  assembler: {name: concat, budget_tokens: 4000}
+  generator: {name: extractive, max_sources: 3}
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000

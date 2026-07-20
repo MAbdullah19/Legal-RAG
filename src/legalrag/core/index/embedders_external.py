@@ -39,7 +39,11 @@ class SentenceTransformerEmbedder:
         self._model_name = model
         self._normalize = normalize
         self._st = SentenceTransformer(model)
-        self._dim = int(self._st.get_sentence_embedding_dimension())
+        # sentence-transformers 5.x renamed this; support both (pyproject allows >=3.0).
+        dim_fn = getattr(self._st, "get_embedding_dimension", None) or (
+            self._st.get_sentence_embedding_dimension
+        )
+        self._dim = int(dim_fn())
 
     @property
     def dim(self) -> int:

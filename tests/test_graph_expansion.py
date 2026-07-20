@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from legalrag.core.builtins import _embedders_external, _graph_expand  # noqa: F401
@@ -65,10 +67,15 @@ def test_e0_config_unaffected_by_new_stage() -> None:
     assert cfg.retrieval.graph_expander.name == "none"
 
 
-def test_external_embedders_error_helpfully_without_extra() -> None:
-    # sentence-transformers / voyageai are not installed in the core/dev env;
-    # instantiation must fail with an actionable message, not an obscure one.
-    with pytest.raises((ImportError, RuntimeError)) as exc:
+def test_external_embedders_error_helpfully_without_extra(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # When a heavy extra is absent, instantiation must fail with an actionable
+    # message, not an obscure one. Simulate absence via sys.modules so the test is
+    # hermetic whether or not the package happens to be installed locally (it is,
+    # now that BGE is the default embedder — ADR 0005), and never downloads a model.
+    monkeypatch.setitem(sys.modules, "sentence_transformers", None)
+    with pytest.raises(ImportError) as exc:
         REGISTRY.build(Stage.EMBEDDER, {"name": "sentence_transformer"})
     assert "pip install" in str(exc.value)
 

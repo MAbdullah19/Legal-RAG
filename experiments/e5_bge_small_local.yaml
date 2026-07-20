@@ -1,0 +1,36 @@
+# E5 (mid-tier variant) — real local embeddings that run on a CPU-only box.
+# Same pipeline as e5_bge_m3_local but with lightweight stand-in models so the
+# local `sentence_transformer` + cross-encoder path can be validated end-to-end on
+# the development machine. The production run uses BGE-M3 + bge-reranker-v2-m3
+# (see e5_bge_m3_local.yaml / e9_local_grounded.yaml) on the RTX 3080 box.
+#   embedder : BAAI/bge-small-en-v1.5  (~33M params, English)
+#   reranker : cross-encoder/ms-marco-MiniLM-L-6-v2  (~22M params, English)
+name: e5_bge_small_local
+corpus: fixture
+seed: 0
+
+index:
+  chunker: {name: fixed, max_tokens: 220}
+  contextualizer: {name: none}
+  embedder: {name: sentence_transformer, model: BAAI/bge-small-en-v1.5, normalize: true}
+  vector_index: {name: memory}
+  lexical_index: {name: bm25, k1: 1.5, b: 0.75}
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 20
+  sparse_k: 20
+  fusion: {name: rrf, k: 60}
+  reranker: {name: bge_reranker, model: cross-encoder/ms-marco-MiniLM-L-6-v2}
+  rerank_top_k: 10
+  final_k: 10
+
+generation:
+  assembler: {name: concat, budget_tokens: 4000}
+  generator: {name: extractive, max_sources: 3}
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000
