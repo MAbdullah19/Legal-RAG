@@ -21,4 +21,5 @@ from legalrag.core.retrieve import rerankers as _rerankers  # noqa: F401
 from legalrag.core.retrieve import rerankers_external as _rerankers_external  # noqa: F401
 from legalrag.core.retrieve import transformers as _transformers  # noqa: F401
 from legalrag.core.retrieve import vector as _vector  # noqa: F401
+from legalrag.core.retrieve import vector_external as _vector_external  # noqa: F401
 from legalrag.core.verify import checks as _checks  # noqa: F401
