@@ -111,6 +111,13 @@ backend, which is exactly what a two-machine research setup needs.
 - **Qdrant** vector index — implemented (`core/retrieve/vector_external.py`),
   drop-in for `memory`. Pure mapping unit-tested; integration validated when the
   stack is up.
-- **MLflow / Postgres / MinIO** — services defined and env wired; engine-side
-  adapters (MLflow tracker, Postgres corpus/edge store) are the next wiring step.
-  Until then the JSON tracker + JSONL corpora work unchanged.
+- **MLflow** run tracker — implemented (`core/eval/tracking_mlflow.py`). Selected
+  automatically by `resolve_tracker()` when `MLFLOW_TRACKING_URI` is set and the
+  `[tracking]` extra is installed; otherwise the JSON tracker. It composes the
+  JSON tracker, so the local `runs/` manifest is always written and then attached
+  to the MLflow run. Falls back to `file:./mlruns` (no server) when the env var is
+  unset. Pure param/metric mapping unit-tested; server integration validated when
+  the stack is up.
+- **Postgres / MinIO** — services defined and env wired; engine-side adapters
+  (Postgres corpus/edge store, MinIO/DVC object store) are the next wiring step.
+  Until then the JSONL corpora work unchanged.

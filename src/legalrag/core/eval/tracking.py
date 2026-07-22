@@ -9,6 +9,7 @@ registers the same interface later.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -60,6 +61,24 @@ class JSONRunTracker:
             encoding="utf-8",
         )
         return str(run_dir)
+
+
+def resolve_tracker() -> RunTracker:
+    """Pick a tracker from the environment, never failing the run.
+
+    MLflow when ``MLFLOW_TRACKING_URI`` is set *and* the ``[tracking]`` extra is
+    installed; otherwise the dependency-free JSON tracker. If MLflow is requested
+    but unavailable (extra not installed), we fall back to JSON rather than crash —
+    the local ``runs/`` manifest is always written either way.
+    """
+    if os.environ.get("MLFLOW_TRACKING_URI"):
+        import importlib.util
+
+        if importlib.util.find_spec("mlflow") is not None:
+            from legalrag.core.eval.tracking_mlflow import MLflowRunTracker
+
+            return MLflowRunTracker()
+    return JSONRunTracker()
 
 
 def build_manifest(

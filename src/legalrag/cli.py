@@ -17,7 +17,7 @@ from legalrag.core import builtins as _builtins  # noqa: F401  (register compone
 from legalrag.core.config import load_experiment
 from legalrag.core.corpus import load_corpus, load_eval_queries
 from legalrag.core.eval.harness import evaluate
-from legalrag.core.eval.tracking import JSONRunTracker, build_manifest
+from legalrag.core.eval.tracking import build_manifest, resolve_tracker
 from legalrag.core.models import EvalQuery
 from legalrag.core.pipeline import Pipeline
 from legalrag.core.registry import REGISTRY
@@ -112,7 +112,7 @@ def eval_cmd(
         model_versions={"embedder": pipeline.embedder.model_id},
         metrics=report.metrics,
     )
-    run_dir = JSONRunTracker().log(manifest, report)
+    run_dir = resolve_tracker().log(manifest, report)
     console.print(f"logged run -> [blue]{run_dir}[/]")
 
     if smoke:
