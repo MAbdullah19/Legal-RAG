@@ -43,8 +43,11 @@ citations = ["eyecite>=2.6", "reporters-db>=3.2", "courts-db>=0.10"]
 graph = ["networkx>=3.3"]
 tracking = ["mlflow>=2.14", "dvc[s3]>=3.0"]
 verify = ["rapidfuzz>=3.9"]
+# --- serving layer (agent-facing knowledge base) ---
+serve = ["fastapi>=0.110", "uvicorn>=0.30"]  # HTTP API (legalrag.service.api)
+mcp = ["mcp>=1.2"]                            # MCP tools for agents (legalrag.service.mcp_server)
 all = [
-    "legalrag[embeddings,llm,stores,lexical,parsing,citations,graph,tracking,verify]",
+    "legalrag[embeddings,llm,stores,lexical,parsing,citations,graph,tracking,verify,serve,mcp]",
 ]
 
 [project.scripts]
@@ -77,6 +80,14 @@ strict = true
 # core/ carries the strict contract; experiments and glue can be looser.
 files = ["src/legalrag"]
 ignore_missing_imports = true
+
+# Serving adapters wrap third-party decorators (FastAPI routes / FastMCP tools).
+# Those frameworks are optional extras, so in a bare typecheck env their
+# decorators resolve to Any and strict mode flags them as untyped. Relax only
+# that one rule for the two glue modules; core.py keeps the full strict contract.
+[[tool.mypy.overrides]]
+module = ["legalrag.service.api", "legalrag.service.mcp_server"]
+disallow_untyped_decorators = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

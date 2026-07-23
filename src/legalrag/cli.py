@@ -148,6 +148,37 @@ def graph(
 
 
 @app.command()
+def serve(
+    kind: str = typer.Argument("mcp", help="'mcp' (agent tools) or 'http' (REST API)"),
+    experiment: str = typer.Option("e0_naive_baseline", "--experiment", "-e"),
+    host: str = typer.Option("127.0.0.1", help="http only"),
+    port: int = typer.Option(8000, help="http only"),
+    transport: str = typer.Option("stdio", help="mcp transport: stdio | streamable-http | sse"),
+) -> None:
+    """Serve the pipeline as a knowledge base (loads + indexes once).
+
+    ``mcp`` exposes legal_answer/legal_search/legal_case to agents (needs the
+    ``mcp`` extra); ``http`` serves a FastAPI REST API (needs the ``serve``
+    extra). See docs/service/README.md.
+    """
+    if kind == "mcp":
+        from legalrag.service.mcp_server import build_server
+
+        console.print(f"[green]MCP[/] serving [cyan]{experiment}[/] over {transport}")
+        build_server(experiment).run(transport=transport)
+    elif kind == "http":
+        import uvicorn
+
+        from legalrag.service.api import create_app
+
+        console.print(f"[green]HTTP[/] serving [cyan]{experiment}[/] on {host}:{port}")
+        uvicorn.run(create_app(experiment), host=host, port=port)
+    else:
+        console.print(f"[red]unknown serve kind {kind!r}[/] — use 'mcp' or 'http'")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def ingest(source: str) -> None:
     """Placeholder — jurisdiction packs implement connectors (US/PK tracks)."""
     console.print(f"[yellow]ingest[/] for {source!r} is implemented in jurisdiction packs.")
