@@ -58,6 +58,21 @@ from legalrag.jurisdictions.us.courts import court_ref_for_courtlistener_id
 _API = "https://www.courtlistener.com/api/rest/v4"
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"[ \t]+")
+# "Request was throttled. Rate limit exceeded: 5/min. Expected available in 52 seconds."
+_THROTTLE_RE = re.compile(r"available in (\d+) second")
+
+
+def _retry_after(err: urllib.error.HTTPError) -> float | None:
+    """How long the server says to wait, from the Retry-After header or the
+    throttle message body. Returns None when it does not say."""
+    header = err.headers.get("Retry-After") if err.headers else None
+    if header and header.strip().isdigit():
+        return float(header.strip()) + 1.0
+    try:
+        match = _THROTTLE_RE.search(err.read(512).decode("utf-8", "replace"))
+    except Exception:
+        return None
+    return float(match.group(1)) + 1.0 if match else None
 
 
 class _Source(Protocol):
@@ -85,13 +100,21 @@ class CourtListenerClient:
         self,
         token: str | None = None,
         base_url: str = _API,
+        # Anonymous search is not throttled; pace it politely.
         delay: float = 0.5,
+        # Authenticated calls are throttled hard for ordinary accounts —
+        # measured at 5 requests per minute, not the 5,000/hour the docs imply
+        # for donors. 12.5s spacing stays just under it, which matters because
+        # this is the endpoint that returns full opinion text and therefore the
+        # one every document costs a call on. Donor accounts can lower it.
+        auth_delay: float = 12.5,
         timeout: float = 30.0,
         max_retries: int = 4,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.token = token if token is not None else os.environ.get("COURTLISTENER_API_TOKEN")
         self.delay = delay
+        self.auth_delay = auth_delay
         self.timeout = timeout
         self.max_retries = max_retries
 
@@ -99,21 +122,35 @@ class CourtListenerClient:
     def has_token(self) -> bool:
         return bool(self.token)
 
-    def get_json(self, url: str) -> dict[str, Any]:
+    def get_json(self, url: str, *, authenticate: bool = True) -> dict[str, Any]:
+        """One GET, with retries.
+
+        `authenticate=False` sends no token deliberately. CourtListener throttles
+        the two endpoints this connector uses in opposite directions: `/search/`
+        is capped at 5 requests per minute for an ordinary authenticated account
+        but is not throttled anonymously, while `/opinions/{id}/` returns 401
+        without a token and full opinion text with one. Sending the token to
+        both makes a slice of any size take hours in the search phase for no
+        benefit — search returns identical results either way.
+        """
         headers = {"User-Agent": "legalrag-research/0.1 (academic; contact via repo)"}
-        if self.token:
+        if self.token and authenticate:
             headers["Authorization"] = f"Token {self.token}"
+        authenticated = bool(self.token and authenticate)
         for attempt in range(self.max_retries):
             req = urllib.request.Request(url, headers=headers)
             try:
                 with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-                    time.sleep(self.delay)  # be polite between calls
                     data: dict[str, Any] = json.load(resp)
+                    time.sleep(self.auth_delay if authenticated else self.delay)
                     return data
             except urllib.error.HTTPError as e:
-                # 429 (throttled) and anonymous 401 (transient rate block) are retryable.
+                # 429 (throttled) and anonymous 401 (transient rate block) are
+                # retryable. CourtListener states how long to wait; obeying it
+                # is the difference between recovering and burning the retries
+                # on a fixed backoff that is always too short.
                 if e.code in (401, 429) and attempt < self.max_retries - 1:
-                    time.sleep(2.0 * (attempt + 1))
+                    time.sleep(_retry_after(e) or 2.0 * (attempt + 1))
                     continue
                 raise
         raise RuntimeError("unreachable")
@@ -135,7 +172,7 @@ class CourtListenerClient:
         results: list[dict[str, Any]] = []
         url = f"{self.base_url}/search/?{urllib.parse.urlencode(params)}"
         while url and len(results) < limit:
-            page = self.get_json(url)
+            page = self.get_json(url, authenticate=False)
             results.extend(page.get("results", []))
             url = page.get("next") or ""
         return results[:limit]
