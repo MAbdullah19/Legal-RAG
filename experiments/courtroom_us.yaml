@@ -1,0 +1,53 @@
+# Serving config for the courtroom simulation (not an ablation rung).
+#
+# The ladder configs exist to be compared against each other on a fixed corpus.
+# This one exists to be *served*: it is what `legalrag serve mcp` loads when the
+# courtroom-sim client asks for authority, so it is tuned for answer quality on
+# one topical slice rather than for a controlled comparison.
+#
+# Choices worth defending:
+#   - Hybrid retrieval, not dense-only. Counsel argue about named authorities
+#     ("Rule 52(a)(6)", "Katz"), and BM25 finds an exact citation string that a
+#     384-dim embedding blurs away.
+#   - A reranker, because the top-20 from fusion on a corpus of full opinions is
+#     dominated by long procedural passages that match on vocabulary alone.
+#   - bge-small + MiniLM rather than BGE-M3 + bge-reranker-v2-m3: this runs on a
+#     GTX 1650 / 8GB box. Swap to e9_local_grounded's models on the 3080.
+#   - `memory` vector index: no Docker on the dev box, so no Qdrant. The cost is
+#     a rebuild on every server start, which is why the MCP session is held open
+#     for a whole run rather than opened per lookup.
+name: courtroom_us
+corpus: us/courtroom
+seed: 0
+
+index:
+  # Larger chunks than the ladder default: these are full appellate opinions,
+  # and a 220-token window splits a holding away from the facts it rests on.
+  chunker: {name: fixed, max_tokens: 380}
+  contextualizer: {name: none}
+  embedder: {name: sentence_transformer, model: BAAI/bge-small-en-v1.5, normalize: true}
+  vector_index: {name: memory}
+  lexical_index: {name: bm25, k1: 1.5, b: 0.75}
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 30
+  sparse_k: 30
+  fusion: {name: rrf, k: 60}
+  reranker: {name: bge_reranker, model: cross-encoder/ms-marco-MiniLM-L-6-v2}
+  rerank_top_k: 12
+  final_k: 8
+
+generation:
+  assembler: {name: concat, budget_tokens: 4000}
+  # Extractive: the courtroom agents do their own generation. What they need
+  # from this service is verified source text, not a second model's summary of
+  # it -- a generated answer here would put an unattributable paraphrase in the
+  # middle of the groundedness measurement.
+  generator: {name: extractive, max_sources: 3}
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000

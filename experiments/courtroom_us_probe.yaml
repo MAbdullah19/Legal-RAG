@@ -1,0 +1,35 @@
+# Same stack as courtroom_us, pointed at a partial slice.
+#
+# Exists to answer one question cheaply: how long does bge-small take to index a
+# few thousand chunks of full opinion text on a CPU-only torch build, and does
+# it fit in memory? Finding that out on the full corpus, at the end, is how a
+# demo gets discovered to be impossible the night before.
+name: courtroom_us_probe
+corpus: us/courtroom-probe
+seed: 0
+
+index:
+  chunker: {name: fixed, max_tokens: 380}
+  contextualizer: {name: none}
+  embedder: {name: sentence_transformer, model: BAAI/bge-small-en-v1.5, normalize: true}
+  vector_index: {name: memory}
+  lexical_index: {name: bm25, k1: 1.5, b: 0.75}
+
+retrieval:
+  query_transformer: {name: none}
+  dense_k: 30
+  sparse_k: 30
+  fusion: {name: rrf, k: 60}
+  reranker: {name: bge_reranker, model: cross-encoder/ms-marco-MiniLM-L-6-v2}
+  rerank_top_k: 12
+  final_k: 8
+
+generation:
+  assembler: {name: concat, budget_tokens: 4000}
+  generator: {name: extractive, max_sources: 3}
+  verifier: {name: deterministic, require_quote_match: true}
+
+eval:
+  ks: [5, 10, 20]
+  ndcg_k: 10
+  bootstrap_samples: 1000
