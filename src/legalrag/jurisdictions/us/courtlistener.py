@@ -102,12 +102,14 @@ class CourtListenerClient:
         base_url: str = _API,
         # Anonymous search is not throttled; pace it politely.
         delay: float = 0.5,
-        # Authenticated calls are throttled hard for ordinary accounts —
-        # measured at 5 requests per minute, not the 5,000/hour the docs imply
-        # for donors. 12.5s spacing stays just under it, which matters because
-        # this is the endpoint that returns full opinion text and therefore the
-        # one every document costs a call on. Donor accounts can lower it.
-        auth_delay: float = 12.5,
+        # Authenticated calls are throttled hard for ordinary accounts. Measured
+        # against the live API: a 5/min burst limit *and* a sustained 50/hour
+        # cap, not the 5,000/hour the docs imply for donors. This is the endpoint
+        # that returns full opinion text, so every document costs one call and
+        # the sustained cap is what governs. 74s spacing yields ~48/hour and
+        # therefore never trips it; pacing under a cap beats recovering from it,
+        # because the recovery window is ~20 minutes. Donors can lower this.
+        auth_delay: float = 74.0,
         timeout: float = 30.0,
         max_retries: int = 4,
     ) -> None:
@@ -150,7 +152,11 @@ class CourtListenerClient:
                 # is the difference between recovering and burning the retries
                 # on a fixed backoff that is always too short.
                 if e.code in (401, 429) and attempt < self.max_retries - 1:
-                    time.sleep(_retry_after(e) or 2.0 * (attempt + 1))
+                    # Capped: an exhausted hourly quota reports a wait of tens of
+                    # minutes, and sleeping through it silently looks exactly
+                    # like a hung process. Better to burn the retries and fail
+                    # loudly — the caller can resume from its cache.
+                    time.sleep(min(_retry_after(e) or 2.0 * (attempt + 1), 120.0))
                     continue
                 raise
         raise RuntimeError("unreachable")
