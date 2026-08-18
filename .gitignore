@@ -27,7 +27,12 @@ mlruns/
 # Pulled corpora — regenerate via jurisdiction connectors; not committed
 # (public record, but kept out of git for size/provenance hygiene). Hand-crafted
 # fixtures (evalsets/fixture, evalsets/us/mini) ARE committed.
-evalsets/us/clerc-dev/
+#
+# Deny by default rather than naming each slice: the rule used to list
+# clerc-dev alone, and every connector run since has dropped another
+# multi-megabyte directory here that a `git add -A` would have swept in.
+evalsets/us/*
+!evalsets/us/mini/
 
 # OS / editor
 .DS_Store
