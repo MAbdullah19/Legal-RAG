@@ -53,6 +53,7 @@ def create_app(experiment: str | None = None):  # type: ignore[no-untyped-def]
     pipeline is loaded (and indexed) once, here at construction time.
     """
     from fastapi import FastAPI, HTTPException
+    from fastapi.responses import RedirectResponse
 
     exp = experiment or os.environ.get(EXPERIMENT_ENV, DEFAULT_EXPERIMENT)
     service = LegalRAGService.load(exp)
@@ -62,6 +63,11 @@ def create_app(experiment: str | None = None):  # type: ignore[no-untyped-def]
         version="0.1.0",
         summary="Grounded, citation-verified RAG over judicial corpora.",
     )
+
+    @app.get("/", include_in_schema=False)
+    def root() -> RedirectResponse:
+        """Send browsers hitting the bare host to the interactive API console."""
+        return RedirectResponse(url="/docs")
 
     @app.get("/health", response_model=HealthResponse)
     def health() -> HealthResponse:

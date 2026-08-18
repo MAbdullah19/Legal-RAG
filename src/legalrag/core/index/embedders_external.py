@@ -70,14 +70,16 @@ class VoyageEmbedder:
 
     def __init__(self, model: str = "voyage-3-large", input_type: str = "document") -> None:
         try:
-            import voyageai
+            # Imported from its defining module: the package ships ``py.typed`` but
+            # does not explicitly re-export ``Client`` from ``voyageai/__init__``.
+            from voyageai.client import Client
         except ImportError as e:  # pragma: no cover - exercised only without the extra
             raise _missing("voyageai", "embeddings") from e
         if not os.environ.get("VOYAGE_API_KEY"):
             raise RuntimeError("VOYAGE_API_KEY is not set (see .env.example).")
         self._model = model
         self._input_type = input_type
-        self._client = voyageai.Client()
+        self._client = Client()
         self._dim: int | None = None
 
     @property
@@ -92,7 +94,9 @@ class VoyageEmbedder:
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
         result = self._client.embed(list(texts), model=self._model, input_type=self._input_type)
-        embeddings: list[list[float]] = result.embeddings
+        # Voyage returns int rows in its quantised output modes; we always request the
+        # default float mode, so normalise defensively to satisfy the Embedder contract.
+        embeddings: list[list[float]] = [[float(x) for x in row] for row in result.embeddings]
         if self._dim is None and embeddings:
             self._dim = len(embeddings[0])
         return embeddings

@@ -36,12 +36,23 @@ def build_server(experiment: str | None = None) -> Any:
 
     The pipeline is loaded and indexed once here; each tool call reuses it.
     """
-    from mcp.server.fastmcp import FastMCP
+    # mcp 2.x renamed ``FastMCP`` to ``MCPServer``; the ``.tool()`` decorator and
+    # ``.run(transport=...)`` surface are identical. pyproject allows mcp>=1.2, so
+    # support both rather than force an upgrade.
+    server_cls: Any
+    try:
+        from mcp.server import MCPServer
+
+        server_cls = MCPServer
+    except ImportError:  # pragma: no cover - mcp 1.x
+        from mcp.server.fastmcp import FastMCP
+
+        server_cls = FastMCP
 
     exp = experiment or os.environ.get(EXPERIMENT_ENV, DEFAULT_EXPERIMENT)
     service = LegalRAGService.load(exp)
 
-    mcp = FastMCP(
+    mcp = server_cls(
         "legal-rag",
         instructions=(
             "Grounded question answering and retrieval over a judicial corpus. "
