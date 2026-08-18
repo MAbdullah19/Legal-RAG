@@ -54,7 +54,7 @@ overruled/"still good law?" detection), and additive graph-neighbour injection
 that lifts multi-hop recall@10 from **0.67 → 1.0** with no aggregate regression
 and zero fabricated citations ([ADR 0004](docs/adr/0004-citation-graph-native-not-synthesized.md)).
 Real embedder adapters (Voyage · sentence-transformers/BGE-M3) registered as
-opt-in components. **48 tests, ruff + mypy(strict) green.**
+opt-in components. **74 tests, ruff + mypy(strict) green.**
 
 Next: P1 on `jurisdiction/us` — CAP/CourtListener connectors, CLERC-dev slice,
 eyecite adapter (feeding this graph with real citations), then the rest of the

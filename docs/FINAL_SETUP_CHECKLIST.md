@@ -13,10 +13,54 @@ can provide. The tag is shown on each step.
 > **What already works today, with nothing below done:** the E0 smoke pipeline
 > (`legalrag eval -e e0_naive_baseline --smoke`), the full local stack on the CPU
 > box (bge-small + MiniLM + qwen2.5:1.5b via Ollama), the citation graph on real
-> CourtListener metadata, and the JSON run tracker. 69 tests green, ruff +
+> CourtListener metadata, and the JSON run tracker. 74 tests green, ruff +
 > mypy(strict) clean. Nothing below is required for development or CI.
 
 Legend: ☐ = you do it · **(H/I/D)** = why it's yours to do.
+
+---
+
+## Stage 0 — the current box (GTX 1650 4 GB / 8 GB RAM) — ✅ done and verified
+
+The full local stack **and** the serving layer run here today. Recipe, as installed:
+
+```powershell
+# CPU torch on purpose: Ollama drives the GPU for generation through its own
+# runtime, so torch+CUDA would only speed up the 33M/22M embed+rerank models
+# while costing ~5 GB of disk and contending with Ollama for the same 4 GB VRAM.
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install -e ".[embeddings,llm,lexical,graph,verify,serve,mcp]"
+```
+
+Deliberately **not** installed on this box:
+
+| Extra | Why skipped |
+|---|---|
+| `citations` | `eyecite` → `fast-diff-match-patch` has no cp314 wheel and needs MSVC Build Tools (admin install). Only needed on `jurisdiction/us`. |
+| `stores` | Qdrant needs Docker Desktop, not installed here. The `memory` index is fine at fixture/small-slice scale. |
+| `tracking` | MLflow wants a server; the JSON run tracker in `runs/` already works. |
+| `parsing` | `docling` is multi-GB and nothing uses it yet. |
+
+Model sizing for 4 GB VRAM / 8 GB RAM — use the `_small` configs, **not** the
+3080 ones. `e5_bge_m3_local` / `e9_local_grounded` (BGE-M3 + 7B) will thrash here:
+
+| Works here | Model set |
+|---|---|
+| `e0_naive_baseline`, `e1_hybrid`, `e7_graph` | deterministic, no models |
+| `e5_bge_small_local` | bge-small-en-v1.5 (33M) + ms-marco-MiniLM-L-6-v2 (22M), CPU |
+| `e9_local_grounded_small` | the above + `qwen2.5:1.5b-instruct` on the GPU via Ollama |
+
+Serving layer, both front doors verified on this box:
+
+```powershell
+legalrag serve http -e e0_naive_baseline --port 8000   # /health /answer /search /case/{doc_id}
+legalrag serve mcp  -e e0_naive_baseline               # legal_answer / legal_search / legal_case
+```
+
+> **Known result on the 1.5B:** `e9_local_grounded_small` abstains on ~44 % of
+> fixture queries (`answer_rate` 0.56) where the extractive generator answers all
+> of them. Hallucinated-citation rate stays **0**, so the safety bar holds — the
+> small model is simply under-answering. Expect this to close with a 7B.
 
 ---
 
